@@ -7,7 +7,6 @@ import {
   Dimensions,
   Image,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
 
 const { width, height } = Dimensions.get("window");
@@ -15,7 +14,7 @@ const { width, height } = Dimensions.get("window");
 export const LoadingAnimation = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const logoPulse = useRef(new Animated.Value(1)).current;
   const pulse1 = useRef(new Animated.Value(0)).current;
   const pulse2 = useRef(new Animated.Value(0)).current;
   const pulse3 = useRef(new Animated.Value(0)).current;
@@ -36,13 +35,19 @@ export const LoadingAnimation = () => {
       }),
     ]).start();
 
-    // Continuous rotation animation
-    const rotateAnimation = Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 2000,
-        useNativeDriver: true,
-      }),
+    const logoPulseAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(logoPulse, {
+          toValue: 1.08,
+          duration: 650,
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoPulse, {
+          toValue: 1,
+          duration: 650,
+          useNativeDriver: true,
+        }),
+      ]),
     );
 
     // Staggered pulse animations
@@ -87,19 +92,14 @@ export const LoadingAnimation = () => {
       ]),
     );
 
-    rotateAnimation.start();
+    logoPulseAnimation.start();
     pulseAnimation.start();
 
     return () => {
-      rotateAnimation.stop();
+      logoPulseAnimation.stop();
       pulseAnimation.stop();
     };
   }, []);
-
-  const rotate = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
 
   return (
     <View style={styles.container}>
@@ -139,16 +139,20 @@ export const LoadingAnimation = () => {
           },
         ]}
       >
-        {/* Rotating Seller Icon */}
+        {/* Pulsing Express logo */}
         <Animated.View
           style={[
             styles.iconContainer,
             {
-              transform: [{ rotate }],
+              transform: [{ scale: logoPulse }],
             },
           ]}
         >
-          <Ionicons name="storefront" size={60} color={colors.primary} />
+          <Image
+            source={require("../../assets/express.png")}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </Animated.View>
 
         {/* App Title */}
@@ -212,14 +216,6 @@ export const LoadingAnimation = () => {
         {/* Loading Text */}
         <Text style={styles.loadingText}>Loading your dashboard...</Text>
       </Animated.View>
-
-      <View style={styles.bottomBranding}>
-        <Image
-          source={require("../../assets/olives.jpg")}
-          style={styles.bottomImage}
-        />
-        <Text style={styles.bottomText}>with olives import</Text>
-      </View>
     </View>
   );
 };
@@ -254,9 +250,9 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
     backgroundColor: colors.surface,
     justifyContent: "center",
     alignItems: "center",
@@ -266,6 +262,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     shadowRadius: 16,
     elevation: 8,
+  },
+  logoImage: {
+    width: 104,
+    height: 104,
   },
   appTitle: {
     fontSize: 32,
@@ -299,23 +299,5 @@ const styles = StyleSheet.create({
     color: colors.muted,
     textAlign: "center",
     fontWeight: "500",
-  },
-  bottomBranding: {
-    position: "absolute",
-    bottom: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  bottomImage: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    marginBottom: 8,
-  },
-  bottomText: {
-    fontSize: 12,
-    color: colors.muted,
-    fontWeight: "600",
-    letterSpacing: 0.5,
   },
 });
