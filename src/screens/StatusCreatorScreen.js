@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
+import { File } from "expo-file-system";
 import { supabase } from "../../supabase";
 import { colors, getTheme } from "../theme/colors";
 import { useSeller } from "../context/SellerContext";
@@ -92,7 +93,7 @@ export const StatusCreatorScreen = ({ navigation }) => {
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [9, 16],
       quality: 0.8,
@@ -139,14 +140,30 @@ export const StatusCreatorScreen = ({ navigation }) => {
   };
 
   const uploadStatusImage = async (uri) => {
-    const response = await fetch(uri);
-    const arrayBuffer = await response.arrayBuffer();
-    const fileData = new Uint8Array(arrayBuffer);
+    const readImageBinary = async (imageUri) => {
+      if (Platform.OS === "web") {
+        const response = await fetch(imageUri);
+        const arrayBuffer = await response.arrayBuffer();
+
+        return {
+          fileData: arrayBuffer,
+          contentType: response.headers.get("content-type") || null,
+        };
+      }
+      const arrayBuffer = await new File(imageUri).arrayBuffer();
+
+      return {
+        fileData: arrayBuffer,
+        contentType: null,
+      };
+    };
+
+    const { fileData, contentType: detectedContentType } =
+      await readImageBinary(uri);
     const ext = getImageExtension(uri);
     const fileName = `${sellerId}/${Date.now()}.${ext}`;
     const contentType =
-      response.headers.get("content-type") ||
-      `image/${ext === "jpg" ? "jpeg" : ext}`;
+      detectedContentType || `image/${ext === "jpg" ? "jpeg" : ext}`;
 
     const { error } = await supabase.storage
       .from("seller-statuses")

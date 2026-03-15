@@ -83,16 +83,23 @@ export const SellerProvider = ({ children }) => {
         await updateLastSeen(currentSellerId);
       }
 
-      if (!presenceChannelRef.current) return;
+      const channel = presenceChannelRef.current;
+      if (!channel) return;
+
+      // Clear ref first to avoid races when stopPresence is called concurrently.
+      presenceChannelRef.current = null;
 
       try {
-        await presenceChannelRef.current.untrack();
+        await channel.untrack();
       } catch (error) {
         console.warn("Seller presence untrack failed:", error);
       }
 
-      supabase.removeChannel(presenceChannelRef.current);
-      presenceChannelRef.current = null;
+      try {
+        supabase.removeChannel(channel);
+      } catch (error) {
+        console.warn("Seller presence channel removal failed:", error);
+      }
     },
     [updateLastSeen],
   );
@@ -628,10 +635,10 @@ export const SellerProvider = ({ children }) => {
       .subscribe();
 
     return () => {
-      ordersChannel.unsubscribe();
-      productsChannel.unsubscribe();
-      flashSalesChannel.unsubscribe();
-      chatsChannel.unsubscribe();
+      ordersChannel?.unsubscribe?.();
+      productsChannel?.unsubscribe?.();
+      flashSalesChannel?.unsubscribe?.();
+      chatsChannel?.unsubscribe?.();
     };
   }, [sellerId, fetchChats]);
 

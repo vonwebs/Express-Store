@@ -13,10 +13,12 @@ import {
   Modal,
   Dimensions,
   TouchableOpacity,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
+import { File } from "expo-file-system";
 import { Ionicons } from "@expo/vector-icons";
 import { useSeller } from "../context/SellerContext";
 import { useToast } from "../context/ToastContext";
@@ -228,9 +230,7 @@ const CatalogScreen = () => {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
+      mediaTypes: ["images"],
       quality: 1,
       allowsMultipleSelection: true,
       selectionLimit: 5 - imageUris.length,
@@ -243,24 +243,51 @@ const CatalogScreen = () => {
 
   const uploadImage = async (uri) => {
     try {
-      // Fetch the image as ArrayBuffer (better compatibility with React Native)
-      const response = await fetch(uri);
-      const arrayBuffer = await response.arrayBuffer();
+      const readImageBinary = async (imageUri) => {
+        if (Platform.OS === "web") {
+          const response = await fetch(imageUri);
+          const arrayBuffer = await response.arrayBuffer();
+
+          return {
+            fileData: arrayBuffer,
+            contentType: response.headers.get("content-type") || null,
+          };
+        }
+        const arrayBuffer = await new File(imageUri).arrayBuffer();
+
+        return {
+          fileData: arrayBuffer,
+          contentType: null,
+        };
+      };
+
+      const { fileData, contentType: detectedContentType } =
+        await readImageBinary(uri);
+
+      const getImageExtension = (imageUri) => {
+        const cleanUri = imageUri?.split("?")[0] || "";
+        const fileNameSegment = cleanUri.split("/").pop() || "";
+        const ext = fileNameSegment.includes(".")
+          ? fileNameSegment.split(".").pop()?.toLowerCase()
+          : null;
+
+        if (!ext || ext.length > 5) return "jpg";
+        return ext === "jpeg" ? "jpg" : ext;
+      };
 
       // Create a unique filename
-      const ext = uri.split(".").pop() || "jpg";
+      const ext = getImageExtension(uri);
       const fileName = `product-${Date.now()}-${Math.random()
         .toString(36)
         .substring(7)}.${ext}`;
-
-      // Convert ArrayBuffer to Uint8Array for upload
-      const fileData = new Uint8Array(arrayBuffer);
+      const contentType =
+        detectedContentType || `image/${ext === "jpg" ? "jpeg" : ext}`;
 
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
         .from("express-products")
         .upload(fileName, fileData, {
-          contentType: "image/jpeg",
+          contentType,
           cacheControl: "3600",
           upsert: false,
         });
